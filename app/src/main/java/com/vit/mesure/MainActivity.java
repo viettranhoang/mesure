@@ -11,8 +11,9 @@ import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
+import com.google.ar.sceneform.rendering.PlaneRenderer;
 import com.google.ar.sceneform.ux.ArFragment;
-import com.vit.mesure.data.model.LineDrawable;
+import com.vit.mesure.data.model.PolygonDrawable;
 
 import java.util.List;
 
@@ -33,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isTracking;
     private boolean isHitting;
 
-    private LineDrawable mLineDrawable;
+    private PolygonDrawable mPolygonDrawable;
 
 
     @Override
@@ -42,21 +43,24 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
 
-        mImageCenter = findViewById(R.id.image_center);
         mArFragment = (ArFragment)
                 getSupportFragmentManager().findFragmentById(R.id.sceneform_fragment);
 
-        mLineDrawable = new LineDrawable(mArFragment.getArSceneView().getScene(), this);
+        mPolygonDrawable = new PolygonDrawable(mArFragment.getArSceneView().getScene(), this);
 
         mArFragment.getArSceneView().getScene().addOnUpdateListener(frameTime -> {
             mArFragment.onUpdate(frameTime);
+            PlaneRenderer planeRenderer = mArFragment.getArSceneView().getPlaneRenderer();
+            planeRenderer.getMaterial().thenAccept(material -> {
+                material.setFloat(PlaneRenderer.MATERIAL_SPOTLIGHT_RADIUS, 100f);
+            });
             onUpdate();
         });
     }
 
     @OnClick(R.id.image_undo)
     void onClickUndo() {
-        mLineDrawable.undo();
+        mPolygonDrawable.undo();
     }
 
     private void onUpdate() {
@@ -71,10 +75,10 @@ public class MainActivity extends AppCompatActivity {
                 if (frame != null) {
                     hits = frame.hitTest(pt.x, pt.y);
                     Anchor anchor = hits.get(0).createAnchor();
-                    mLineDrawable.drawTemp(anchor);
+                    mPolygonDrawable.drawTemp(anchor);
 
                     mArFragment.getArSceneView().setOnClickListener(v -> {
-                        mLineDrawable.add(anchor);
+                        mPolygonDrawable.add(anchor);
                     });
                 }
             } else {
@@ -110,7 +114,6 @@ public class MainActivity extends AppCompatActivity {
                 frame.getCamera().getTrackingState() == TrackingState.TRACKING;
         return isTracking != wasTracking;
     }
-
 
     private android.graphics.Point getScreenCenter() {
         View vw = findViewById(android.R.id.content);

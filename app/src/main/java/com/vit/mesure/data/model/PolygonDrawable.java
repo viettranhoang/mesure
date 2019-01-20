@@ -1,13 +1,14 @@
 package com.vit.mesure.data.model;
 
 import android.content.Context;
+import android.util.Log;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Pose;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.Node;
-import com.google.ar.sceneform.NodeParent;
 import com.google.ar.sceneform.Scene;
 import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
@@ -22,7 +23,9 @@ import com.vit.mesure.util.Utils;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LineDrawable {
+public class PolygonDrawable {
+
+    public static final String TAG = PolygonDrawable.class.getSimpleName();
 
     private List<Line> mLines = new ArrayList<>();
 
@@ -34,48 +37,90 @@ public class LineDrawable {
 
     private Line lineTemp;
 
-    public LineDrawable(Scene scene, Context context) {
+    private boolean isDone = false;
+
+    public PolygonDrawable(Scene scene, Context context) {
         this.mScene = scene;
         this.mContext = context;
         lineTemp = new Line();
     }
 
+    public float getArea() {
+        return .0f;
+    }
 
-    public void add(Anchor anchor) {
-        mLine = new Line(anchor);
-        mLine.setParent(mScene);
-        drawPoint(anchor);
+    public float getPerimeter() {
+        float p = .0f;
 
         if (!isFirstPoint()) {
-            Anchor anchorLast = mLines.get(mLines.size() - 1).getAnchor();
-            drawLine(anchorLast, anchor);
+            for (Line l : mLines) {
+                p += l.getLenght();
+            }
         }
+        return p;
+    }
 
-        mLines.add(mLine);
+    public void add(Anchor anchor) {
+        if (!isDone) {
+            mLine = new Line(anchor);
+            mLine.setParent(mScene);
+            drawPoint(anchor);
+
+            if (!isFirstPoint()) {
+                Anchor anchorLast = mLines.get(mLines.size() - 1).getAnchor();
+                drawLine(anchorLast, anchor);
+                mLine.setLenght(calculateLenght(anchorLast, anchor));
+            }
+
+            mLines.add(mLine);
+        }
     }
 
     public void drawTemp(Anchor anchor) {
         mLine = new Line(anchor);
         mLine.setParent(mScene);
 
-        if (!isFirstPoint()) {
+        if (!isFirstPoint() && !isDone) {
             mScene.onRemoveChild(lineTemp);
             drawPoint(anchor);
             Anchor anchorLast = mLines.get(mLines.size() - 1).getAnchor();
             drawLine(anchorLast, anchor);
             lineTemp = mLine;
 
+
+            if (mLines.size() > 2) {
+                ArrayList<Node> nodeTest = mScene.overlapTestAll(lineTemp);
+                for (Node node : nodeTest) {
+                    if (node.getCollisionShape().equals(mLines.get(0).getCollisionShape())) {
+                        Log.i(TAG, "drawTemp: ");
+                        mScene.onRemoveChild(lineTemp);
+                        add(mLines.get(0).getAnchor());
+                        isDone = true;
+                        showP();
+                    }
+                }
+            }
+
         }
 
     }
 
     public void undo() {
+        isDone = false;
         if (!isFirstPoint()) {
             mScene.onRemoveChild(mLines.get(mLines.size() - 1));
             mLines.remove(mLines.size() - 1);
         } else {
             mScene.onRemoveChild(lineTemp);
         }
+    }
+
+    public boolean isDone() {
+        return isDone;
+    }
+
+    private void showP() {
+        Toast.makeText(mContext, "P = " + Utils.lenghtToString(getPerimeter()), Toast.LENGTH_SHORT).show();
     }
 
     private boolean isFirstPoint() {
@@ -127,7 +172,7 @@ public class LineDrawable {
                             Vector3.zero(), material);
 
                     Node lineNode = new Node();
-                    lineNode.setParent(anchorNode1);
+                    lineNode.setParent(anchorNode2);
                     lineNode.setRenderable(cube);
                     lineNode.setWorldPosition(Vector3.add(from, to).scaled(.5f));
                     lineNode.setWorldRotation(rotationFromAToB);
